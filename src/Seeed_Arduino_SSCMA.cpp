@@ -97,6 +97,15 @@ bool SSCMA::begin(TwoWire *wire, int32_t rst, uint16_t address, uint32_t wait_de
     _serial = NULL;
     _address = address;
     _wire->begin();
+#if defined(ARDUINO_ARCH_ESP32)
+    // i2c_read() pulls the module response in MAX_PL_LEN (250-byte) chunks via
+    // requestFrom(). On ESP32 the Arduino TwoWire RX buffer defaults to 128
+    // bytes (I2C_BUFFER_LENGTH) and requestFrom() does not clamp the request to
+    // the buffer capacity, so a full-size read overruns rxBuffer and corrupts
+    // the neighbouring heap. Grow the buffer to hold one full packet.
+    // See https://github.com/espressif/arduino-esp32/pull/12723
+    _wire->setBufferSize(PACKET_SIZE);
+#endif
     _wire->setClock(clock);
     _wait_delay = wait_delay;
 
