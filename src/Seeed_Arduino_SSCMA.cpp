@@ -289,6 +289,14 @@ int SSCMA::i2c_available()
 
 int SSCMA::i2c_read(char *data, int length)
 {
+    // Return the number of bytes actually read, not the number requested. A
+    // requestFrom()/readBytes() that times out (ESP_ERR_TIMEOUT) or comes up
+    // short otherwise must NOT be reported as a full read: the caller advances
+    // its rx cursor by this return, so over-reporting writes the byte stream out
+    // of sync with the \r\n response framing and never recovers. Writes are kept
+    // contiguous (data + total) and a short chunk stops the read, so the buffer
+    // holds exactly `total` valid bytes with no gap.
+    int total = 0;
     uint16_t packets = length / MAX_PL_LEN;
     uint8_t remain = length % MAX_PL_LEN;
     for (uint16_t i = 0; i < packets; i++)
@@ -302,11 +310,17 @@ int SSCMA::i2c_read(char *data, int length)
         // TODO checksum
         _wire->write(0);
         _wire->write(0);
-        if (_wire->endTransmission() == 0)
+        if (_wire->endTransmission() != 0)
         {
-            delay(_wait_delay);
-            _wire->requestFrom(_address, MAX_PL_LEN);
-            _wire->readBytes(data + i * MAX_PL_LEN, MAX_PL_LEN);
+            return total;
+        }
+        delay(_wait_delay);
+        _wire->requestFrom(_address, MAX_PL_LEN);
+        int n = _wire->readBytes(data + total, MAX_PL_LEN);
+        total += n;
+        if (n < MAX_PL_LEN)
+        {
+            return total;
         }
     }
     if (remain)
@@ -320,14 +334,15 @@ int SSCMA::i2c_read(char *data, int length)
         // TODO checksum
         _wire->write(0);
         _wire->write(0);
-        if (_wire->endTransmission() == 0)
+        if (_wire->endTransmission() != 0)
         {
-            delay(_wait_delay);
-            _wire->requestFrom(_address, remain);
-            _wire->readBytes(data + packets * MAX_PL_LEN, remain);
+            return total;
         }
+        delay(_wait_delay);
+        _wire->requestFrom(_address, remain);
+        total += _wire->readBytes(data + total, remain);
     }
-    return length;
+    return total;
 }
 
 int SSCMA::i2c_write(const char *data, int length)
