@@ -860,13 +860,19 @@ bool SSCMA::set_rx_buffer(uint32_t size)
     {
         return false;
     }
+    // Allocate one byte beyond the usable capacity. fetch() and wait() write a
+    // terminating NUL at rx_buf[rx_end] after a read, and rx_end can reach rx_len
+    // exactly (the read clamp allows len + rx_end == rx_len). Without the extra
+    // byte that NUL lands one past the buffer and corrupts the adjacent heap
+    // block — under a sustained free-run (invoke(-1)) backlog the buffer fills to
+    // rx_len and the overrun fires. rx_len stays the usable data capacity.
     if (this->rx_len == 0)
     {
-        this->rx_buf = (char *)malloc(size);
+        this->rx_buf = (char *)malloc(size + 1);
     }
     else
     {
-        this->rx_buf = (char *)realloc(this->rx_buf, size);
+        this->rx_buf = (char *)realloc(this->rx_buf, size + 1);
     }
     if (this->rx_buf)
     {
