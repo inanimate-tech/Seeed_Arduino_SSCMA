@@ -892,20 +892,17 @@ bool SSCMA::set_rx_buffer(uint32_t size)
     // byte that NUL lands one past the buffer and corrupts the adjacent heap
     // block — under a sustained free-run (invoke(-1)) backlog the buffer fills to
     // rx_len and the overrun fires. rx_len stays the usable data capacity.
-    if (this->rx_len == 0)
+    char *buf = (this->rx_len == 0)
+                    ? (char *)malloc(size + 1)
+                    : (char *)realloc(this->rx_buf, size + 1);
+    if (buf == NULL)
     {
-        this->rx_buf = (char *)malloc(size + 1);
+        return false; // old rx_buf (if any) is still valid and still owned
     }
-    else
-    {
-        this->rx_buf = (char *)realloc(this->rx_buf, size + 1);
-    }
-    if (this->rx_buf)
-    {
-        this->rx_end = 0;
-        this->rx_len = size;
-    }
-    return this->rx_buf != NULL;
+    this->rx_buf = buf;
+    this->rx_end = 0;
+    this->rx_len = size;
+    return true;
 }
 bool SSCMA::set_tx_buffer(uint32_t size)
 {
@@ -913,19 +910,16 @@ bool SSCMA::set_tx_buffer(uint32_t size)
     {
         return false;
     }
-    if (this->tx_len == 0)
+    char *buf = (this->tx_len == 0)
+                    ? (char *)malloc(size)
+                    : (char *)realloc(this->tx_buf, size);
+    if (buf == NULL)
     {
-        this->tx_buf = (char *)malloc(size);
+        return false;
     }
-    else
-    {
-        this->tx_buf = (char *)realloc(this->tx_buf, size);
-    }
-    if (this->tx_buf)
-    {
-        this->tx_len = size;
-    }
-    return this->tx_buf != nullptr;
+    this->tx_buf = buf;
+    this->tx_len = size;
+    return true;
 }
 
 int SSCMA::clean_actions()
