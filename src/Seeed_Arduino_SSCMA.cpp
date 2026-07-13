@@ -613,7 +613,7 @@ int SSCMA::wait(int type, const char *cmd, uint32_t timeout)
 
                 if (!payload)
                 {
-                    continue;
+                    break;
                 }
 
                 memcpy(payload, prefix + 1, len - 1); // remove "\r" and "\n"
@@ -693,7 +693,7 @@ void SSCMA::fetch(ResponseCallback RespCallback)
 
             if (!payload)
             {
-                continue;
+                break;
             }
 
             memcpy(payload, prefix, len); // remove "\r" and "\n"
