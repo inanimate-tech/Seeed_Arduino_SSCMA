@@ -923,6 +923,10 @@ bool SSCMA::set_rx_buffer(uint32_t size)
     {
         return false;
     }
+    if (size < PACKET_SIZE)
+    {
+        size = PACKET_SIZE;
+    }
     // Allocate one byte beyond the usable capacity. fetch() and wait() write a
     // terminating NUL at rx_buf[rx_end] after a read, and rx_end can reach rx_len
     // exactly (the read clamp allows len + rx_end == rx_len). Without the extra
@@ -946,6 +950,10 @@ bool SSCMA::set_tx_buffer(uint32_t size)
     if (size == 0)
     {
         return false;
+    }
+    if (size < PACKET_SIZE)
+    {
+        size = PACKET_SIZE;
     }
     char *buf = (this->tx_len == 0)
                     ? (char *)malloc(size)
