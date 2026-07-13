@@ -867,7 +867,7 @@ String SSCMA::info(bool cache)
 
     write(cmd, strlen(cmd));
 
-    if (wait(CMD_TYPE_RESPONSE, CMD_AT_INFO, 3000) == CMD_OK)
+    if (wait(CMD_TYPE_RESPONSE, "INFO?", 3000) == CMD_OK)
     {
         _info = response["data"]["info"].as<String>();
         return _info;
