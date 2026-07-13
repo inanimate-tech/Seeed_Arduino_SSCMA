@@ -221,6 +221,22 @@ static int case_transport_switch() {
   TH_REPORT();
 }
 
+// write()/read()/available() on an object with NO transport configured must be
+// a safe no-op returning 0, not a NULL _wire dereference in the i2c fallthrough.
+static int case_no_transport() {
+  fprintf(stderr, "== no-transport dispatch is a safe no-op ==\n");
+  SSCMA ai;  // never begun: _serial, _spi, _wire all NULL
+  char buf[8];
+  int a = ai.available();               // pre-fix: _wire->... on NULL -> UBSan abort
+  int r = ai.read(buf, sizeof(buf));
+  const char msg[3] = {'x', 'y', 'z'};
+  int w = ai.write(msg, sizeof(msg));
+  TH_EQ_INT(a, 0);
+  TH_EQ_INT(r, 0);
+  TH_EQ_INT(w, 0);
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
@@ -236,6 +252,7 @@ int main(int argc, char** argv) {
   if (which == "id_cache") return case_id_cache();
   if (which == "wait_match") return case_wait_match();
   if (which == "transport_switch") return case_transport_switch();
+  if (which == "no_transport") return case_no_transport();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;
