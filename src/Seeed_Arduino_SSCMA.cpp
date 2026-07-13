@@ -799,7 +799,7 @@ int SSCMA::MQTT(mqtt_t &mqtt)
 
 char *SSCMA::ID(bool cache)
 {
-    if (cache && _ID)
+    if (cache && _ID[0])
     {
         return _ID;
     }
