@@ -28,6 +28,8 @@ pass "$A" ownership_leak
 pass "$A" ownership_destruct
 pass "$F" realloc_fail
 pass "$F" begin_alloc_fail
+pass "$F" oom_wait
+pass "$F" oom_fetch
 # FAULT_CASES
 
 # ---- compile-fail checks (Task 1) ----

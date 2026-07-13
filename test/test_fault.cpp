@@ -36,6 +36,47 @@ static int case_begin_alloc_fail() {
 
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
+// When the payload malloc fails mid-parse, wait() must not spin forever: it
+// must fall back to the outer timeout and return CMD_ETIMEDOUT. Watchdog
+// catches the pre-fix infinite loop.
+static int case_oom_wait() {
+  fprintf(stderr, "== wait() terminates when payload malloc fails ==\n");
+  HardwareSerial fake;
+  feed_begin(fake);
+  SSCMA ai;
+  ai.begin(&fake, -1, 921600, 2);
+  // Queue a full RESPONSE frame, then fail every allocation and invoke.
+  fake.feedReply(CMD_TYPE_RESPONSE, "INVOKE", 0, "{\"status\":0}");
+  arm_watchdog(3);
+  fault::fail_malloc_after(0);
+  int r = ai.invoke(1, false, false);  // wait() runs here
+  fault::disarm();
+  alarm(0);
+  TH_CHECK(r == CMD_ETIMEDOUT, "invoke/wait must time out, not hang (got %d)", r);
+  TH_REPORT();
+}
+
+// fetch() has no timeout at all; on malloc failure it must break out of the
+// frame loop rather than spin. It returns void, so success = it returns and
+// the callback is never invoked.
+static int case_oom_fetch() {
+  fprintf(stderr, "== fetch() terminates when payload malloc fails ==\n");
+  HardwareSerial fake;
+  feed_begin(fake);
+  SSCMA ai;
+  ai.begin(&fake, -1, 921600, 2);
+  fake.feedReply(CMD_TYPE_EVENT, "INVOKE", 0, "{\"count\":1}");
+  bool called = false;
+  arm_watchdog(3);
+  fault::fail_malloc_after(0);
+  ai.fetch([&](const char*, size_t) { called = true; });
+  fault::disarm();
+  alarm(0);
+  TH_CHECK(!called, "callback must not fire when payload alloc failed");
+  TH_CHECK(true, "fetch() returned (did not hang)");
+  TH_REPORT();
+}
+
 // A failed re-size (realloc) must leave the object fully usable: the old
 // buffer stays owned, rx_len unchanged, setter returns false. Pre-fix the
 // setter nulls rx_buf while leaving rx_len set, so the next invoke() writes
@@ -67,6 +108,8 @@ int main(int argc, char** argv) {
   std::string which = argc > 1 ? argv[1] : "";
   if (which == "realloc_fail") return case_realloc_fail();
   if (which == "begin_alloc_fail") return case_begin_alloc_fail();
+  if (which == "oom_wait") return case_oom_wait();
+  if (which == "oom_fetch") return case_oom_fetch();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;
