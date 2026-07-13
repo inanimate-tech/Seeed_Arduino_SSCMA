@@ -26,6 +26,7 @@ pass "$A" happy
 # ASAN_CASES
 pass "$A" ownership_leak
 pass "$A" ownership_destruct
+pass "$F" realloc_fail
 # FAULT_CASES
 
 # ---- compile-fail checks (Task 1) ----
