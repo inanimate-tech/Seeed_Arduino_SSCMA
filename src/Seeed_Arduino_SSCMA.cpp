@@ -248,10 +248,11 @@ int SSCMA::write(const char *data, int length)
     {
         return spi_write(data, length);
     }
-    else
+    else if (_wire)
     {
         return i2c_write(data, length);
     }
+    return 0;
 }
 
 int SSCMA::read(char *data, int length)
@@ -264,10 +265,11 @@ int SSCMA::read(char *data, int length)
     {
         return spi_read(data, length);
     }
-    else
+    else if (_wire)
     {
         return i2c_read(data, length);
     }
+    return 0;
 }
 
 int SSCMA::available()
@@ -280,10 +282,11 @@ int SSCMA::available()
     {
         return spi_available();
     }
-    else
+    else if (_wire)
     {
         return i2c_available();
     }
+    return 0;
 }
 
 void SSCMA::i2c_cmd(uint8_t feature, uint8_t cmd, uint16_t len, uint8_t *data)
