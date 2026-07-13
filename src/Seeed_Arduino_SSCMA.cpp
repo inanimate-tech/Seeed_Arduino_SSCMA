@@ -73,6 +73,25 @@ char *strnstr(const char *haystack, const char *needle, size_t n)
             digitalWrite(_cs, x); \
     } while (0)
 
+// Bounded copy of a device-supplied JSON string into a fixed buffer. NULL src
+// (missing/absent JSON value) yields an empty string. Always NUL-terminates.
+static void copy_str(char *dst, size_t cap, const char *src)
+{
+    if (cap == 0)
+    {
+        return;
+    }
+    size_t i = 0;
+    if (src != NULL)
+    {
+        for (; i + 1 < cap && src[i] != '\0'; i++)
+        {
+            dst[i] = src[i];
+        }
+    }
+    dst[i] = '\0';
+}
+
 SSCMA::SSCMA()
 {
     _wire = NULL;
@@ -484,7 +503,8 @@ int SSCMA::spi_write(const char *data, int length)
 
 void SSCMA::praser_event()
 {
-    if (strstr(response["name"], CMD_AT_INVOKE))
+    const char *event_name = response["name"].as<const char *>();
+    if (event_name && strstr(event_name, CMD_AT_INVOKE))
     {
         if (response["data"].containsKey("perf"))
         {
@@ -645,7 +665,8 @@ int SSCMA::wait(int type, const char *cmd, uint32_t timeout)
 
                 ret = response["code"];
 
-                if (response["type"] == type && strncmp(response["name"], cmd, sizeof(cmd)) == 0)
+                const char *resp_name = response["name"].as<const char *>();
+                if (response["type"] == type && resp_name && strncmp(resp_name, cmd, sizeof(cmd)) == 0)
                 {
                     return ret;
                 }
@@ -748,8 +769,8 @@ int SSCMA::WIFI(wifi_t &wifi)
     {
         wifi.status = response["data"]["status"];
         wifi.security = response["data"]["config"]["security"];
-        strcpy(wifi.ssid, response["data"]["config"]["name"]);
-        strcpy(wifi.password, response["data"]["config"]["password"]);
+        copy_str(wifi.ssid, sizeof(wifi.ssid), response["data"]["config"]["name"].as<const char *>());
+        copy_str(wifi.password, sizeof(wifi.password), response["data"]["config"]["password"].as<const char *>());
         return CMD_OK;
     }
 
@@ -767,10 +788,10 @@ int SSCMA::MQTT(mqtt_t &mqtt)
         mqtt.status = response["data"]["status"];
         mqtt.port = response["data"]["config"]["port"];
         mqtt.use_ssl = response["data"]["config"]["use_ssl"] == 1;
-        strcpy(mqtt.server, response["data"]["config"]["address"]);
-        strcpy(mqtt.username, response["data"]["config"]["username"]);
-        strcpy(mqtt.password, response["data"]["config"]["password"]);
-        strcpy(mqtt.client_id, response["data"]["config"]["client_id"]);
+        copy_str(mqtt.server, sizeof(mqtt.server), response["data"]["config"]["address"].as<const char *>());
+        copy_str(mqtt.username, sizeof(mqtt.username), response["data"]["config"]["username"].as<const char *>());
+        copy_str(mqtt.password, sizeof(mqtt.password), response["data"]["config"]["password"].as<const char *>());
+        copy_str(mqtt.client_id, sizeof(mqtt.client_id), response["data"]["config"]["client_id"].as<const char *>());
         return CMD_OK;
     }
 
@@ -791,7 +812,12 @@ char *SSCMA::ID(bool cache)
 
     if (wait(CMD_TYPE_RESPONSE, CMD_AT_ID) == CMD_OK)
     {
-        strcpy(_ID, response["data"]);
+        const char *v = response["data"].as<const char *>();
+        if (v == NULL)
+        {
+            return NULL;
+        }
+        copy_str(_ID, sizeof(_ID), v);
         return _ID;
     }
 
@@ -810,7 +836,12 @@ char *SSCMA::name(bool cache)
 
     if (wait(CMD_TYPE_RESPONSE, CMD_AT_NAME, 3000) == CMD_OK)
     {
-        strcpy(_name, response["data"]);
+        const char *v = response["data"].as<const char *>();
+        if (v == NULL)
+        {
+            return NULL;
+        }
+        copy_str(_name, sizeof(_name), v);
         return _name;
     }
 
