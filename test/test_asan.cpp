@@ -178,6 +178,29 @@ static int case_id_cache() {
   TH_REPORT();
 }
 
+// wait() must match the FULL command name. sizeof(cmd) is the pointer width
+// (8 on this host), so the buggy strncmp(resp, cmd, sizeof(cmd)) compares only
+// 8 bytes and a "MQTTSERVER" response wrongly satisfies a wait for
+// "MQTTSERVERSTA" (shared 8-char prefix). Feed only that decoy and assert
+// MQTTSTA() times out (correct) instead of accepting it (bug).
+static int case_wait_match() {
+  fprintf(stderr, "== command name matching ==\n");
+  HardwareSerial fake;
+  SSCMA ai;
+  feed_begin(fake);
+  ai.begin(&fake, -1, 921600, 2);
+  fake.clearTx();
+  // Decoy: a RESPONSE named "MQTTSERVER" (a DIFFERENT command) with code OK.
+  fake.feedReply(CMD_TYPE_RESPONSE, "MQTTSERVER", CMD_OK, "0");
+  mqtt_status_t st{};
+  st.status = 0;
+  int r = ai.MQTTSTA(st);   // waits for "MQTTSERVERSTA"
+  // Correct: the decoy is not MQTTSERVERSTA -> no match -> time out.
+  // Pre-fix strncmp(...,8) matches "MQTTSERV" -> wrongly returns CMD_OK.
+  TH_CHECK(r == CMD_ETIMEDOUT, "MQTTSTA must reject a MQTTSERVER decoy (got %d)", r);
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
@@ -191,6 +214,7 @@ int main(int argc, char** argv) {
   if (which == "event_noname") return case_event_noname();
   if (which == "clamp_tx") return case_clamp_tx();
   if (which == "id_cache") return case_id_cache();
+  if (which == "wait_match") return case_wait_match();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;
