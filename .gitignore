@@ -1,1 +1,5 @@
 .vscode
+
+# host test harness (dev-branch only)
+test/build/
+test/third_party/
