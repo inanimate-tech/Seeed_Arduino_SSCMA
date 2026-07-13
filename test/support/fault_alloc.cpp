@@ -1,10 +1,20 @@
-// fault_alloc.cpp — strong malloc/realloc/free overrides. Validated on
-// Apple clang: a plain strong definition in the executable is picked up for
-// the entire image without ASan or dyld interposition.
+// fault_alloc.cpp — strong malloc/realloc overrides. Validated on Apple
+// clang: a plain strong definition in the executable is picked up for the
+// entire image without ASan or dyld interposition. Do NOT define a free()
+// override: libc's free correctly releases the calloc-backed blocks these
+// overrides return, and overriding free() here would self-recurse (libc++
+// aliases std::free to ::free).
 #include "fault_alloc.h"
 
 #include <cstring>
 #include <cstdlib>
+#if defined(__APPLE__)
+#include <malloc/malloc.h>
+#define FAULT_USABLE_SIZE(p) malloc_size(p)
+#else
+#include <malloc.h>
+#define FAULT_USABLE_SIZE(p) malloc_usable_size(p)
+#endif
 
 namespace {
 int g_malloc_fail_after = -1;
@@ -34,9 +44,10 @@ extern "C" void* realloc(void* p, size_t n) {
     return nullptr;  // original block left intact & owned — caller must keep it
   if (!p) return malloc(n);
   void* q = real_alloc(n);
-  if (q && p) memcpy(q, p, n);  // over-copies but harmless for the test sizes
-  free(p);
+  if (q) {
+    size_t old = FAULT_USABLE_SIZE(p);
+    memcpy(q, p, n < old ? n : old);  // bounded: never over-read past p
+  }
+  free(p);  // libc free (no override) releases the calloc-backed block
   return q;
 }
-
-extern "C" void free(void* p) { if (p) std::free(p); }
