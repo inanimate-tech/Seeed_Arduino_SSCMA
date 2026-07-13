@@ -35,6 +35,7 @@ pass "$A" id_cache
 pass "$A" wait_match
 pass "$A" transport_switch
 pass "$A" no_transport
+pass "$A" info_match
 pass "$F" realloc_fail
 pass "$F" begin_alloc_fail
 pass "$F" oom_wait

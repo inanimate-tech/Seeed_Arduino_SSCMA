@@ -237,6 +237,22 @@ static int case_no_transport() {
   TH_REPORT();
 }
 
+// info() sends AT+INFO? and must match the device's "INFO?" response name
+// (the device echoes the query tag WITH the '?', like WIFI?/MQTTSERVER?).
+// Regression guard for the strncmp->strcmp change.
+static int case_info_match() {
+  fprintf(stderr, "== info() matches INFO? response ==\n");
+  HardwareSerial fake;
+  SSCMA ai;
+  feed_begin(fake);
+  ai.begin(&fake, -1, 921600, 2);
+  fake.clearTx();
+  fake.feedReply(CMD_TYPE_RESPONSE, "INFO?", CMD_OK, "{\"info\":\"model-x\"}");
+  String s = ai.info(false);
+  TH_EQ_STR(s.c_str(), "model-x");
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
@@ -253,6 +269,7 @@ int main(int argc, char** argv) {
   if (which == "wait_match") return case_wait_match();
   if (which == "transport_switch") return case_transport_switch();
   if (which == "no_transport") return case_no_transport();
+  if (which == "info_match") return case_info_match();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;
