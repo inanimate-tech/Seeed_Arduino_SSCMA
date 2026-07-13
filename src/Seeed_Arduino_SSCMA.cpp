@@ -120,8 +120,10 @@ bool SSCMA::begin(TwoWire *wire, int32_t rst, uint16_t address, uint32_t wait_de
     _wire->setClock(clock);
     _wait_delay = wait_delay;
 
-    set_rx_buffer(SSCMA_MAX_RX_SIZE);
-    set_tx_buffer(SSCMA_MAX_TX_SIZE);
+    if (!set_rx_buffer(SSCMA_MAX_RX_SIZE) || !set_tx_buffer(SSCMA_MAX_TX_SIZE))
+    {
+        return false;
+    }
 
     response.clear();
 
@@ -148,8 +150,10 @@ bool SSCMA::begin(HardwareSerial *serial, int32_t rst, uint32_t baud,
     _serial->setTimeout(1000);
     _serial->flush();
 
-    set_rx_buffer(SSCMA_MAX_RX_SIZE);
-    set_tx_buffer(SSCMA_MAX_TX_SIZE);
+    if (!set_rx_buffer(SSCMA_MAX_RX_SIZE) || !set_tx_buffer(SSCMA_MAX_TX_SIZE))
+    {
+        return false;
+    }
 
     response.clear();
 
@@ -187,8 +191,10 @@ bool SSCMA::begin(SPIClass *spi, int32_t cs, int32_t sync, int32_t rst, uint32_t
         pinMode(_sync, INPUT);
     }
 
-    set_rx_buffer(SSCMA_MAX_RX_SIZE);
-    set_tx_buffer(SSCMA_MAX_TX_SIZE);
+    if (!set_rx_buffer(SSCMA_MAX_RX_SIZE) || !set_tx_buffer(SSCMA_MAX_TX_SIZE))
+    {
+        return false;
+    }
 
     response.clear();
 
