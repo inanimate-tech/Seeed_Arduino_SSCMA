@@ -137,6 +137,26 @@ static int case_event_noname() {
   TH_REPORT();
 }
 
+// set_tx_buffer(small) then an SPI command must not overrun tx_buf: spi_cmd
+// transfers PACKET_SIZE bytes and writes tx_buf[4+len]. Pre-fix ASan aborts.
+static int case_clamp_tx() {
+  fprintf(stderr, "== tx buffer clamped to >= PACKET_SIZE ==\n");
+  SPIClass spi;
+  SSCMA* ai = new SSCMA();
+  // SPI begin() issues a RESET spi_cmd; give it no sync pin. It will also try
+  // ID()/name() which time out (no MISO script) — that's fine, we only care
+  // that spi_cmd doesn't overrun.
+  ai->begin(&spi, -1, -1, -1, 15000000, 0);
+  bool ok = ai->set_tx_buffer(16);   // deliberately tiny
+  TH_CHECK(ok, "set_tx_buffer(16) succeeds (clamped)");
+  // Drive an SPI command path through write() -> spi_write -> spi_cmd.
+  const char payload[8] = {1,2,3,4,5,6,7,8};
+  ai->write(payload, sizeof(payload));  // pre-fix: heap-buffer-overflow in spi_cmd
+  TH_CHECK(true, "spi_cmd did not overrun tx_buf");
+  delete ai;
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
@@ -148,6 +168,7 @@ int main(int argc, char** argv) {
   if (which == "nullkey") return case_nullkey();
   if (which == "wifi_mqtt_overflow") return case_wifi_mqtt_overflow();
   if (which == "event_noname") return case_event_noname();
+  if (which == "clamp_tx") return case_clamp_tx();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;

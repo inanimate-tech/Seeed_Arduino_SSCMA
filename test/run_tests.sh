@@ -30,6 +30,7 @@ pass "$A" wifi_mqtt_overflow
 pass "$A" event_noname
 pass "$A" ownership_leak
 pass "$A" ownership_destruct
+pass "$A" clamp_tx
 pass "$F" realloc_fail
 pass "$F" begin_alloc_fail
 pass "$F" oom_wait
