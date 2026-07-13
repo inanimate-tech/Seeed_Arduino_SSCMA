@@ -72,6 +72,71 @@ static int case_ownership_destruct() {
   TH_REPORT();
 }
 
+// A >31-char ID must be truncated into char _ID[32], never overflow it.
+// Pre-fix: strcpy overruns the object; a 512-char ID runs off the heap block
+// and ASan aborts. Post-fix: truncated, no abort.
+static int case_overflow_id() {
+  fprintf(stderr, "== bounded ID copy ==\n");
+  HardwareSerial fake;
+  SSCMA* ai = new SSCMA();
+  std::string longid(512, 'A');
+  fake.feedReply(0, "ID?", 0, "\"" + longid + "\"");
+  fake.feedReply(0, "NAME?", 0, "\"sscma\"");
+  ai->begin(&fake, -1, 921600, 2);   // pre-fix: ASan heap-buffer-overflow here
+  char* id = ai->ID();
+  TH_CHECK(id != NULL, "ID present");
+  TH_CHECK(strlen(id) <= 31, "ID truncated to fit _ID[32], got %zu", strlen(id));
+  delete ai;
+  TH_REPORT();
+}
+
+// A RESPONSE whose data is missing must not strcpy(dst, NULL) / crash.
+static int case_nullkey() {
+  fprintf(stderr, "== missing data key is safe ==\n");
+  HardwareSerial fake;
+  SSCMA ai;
+  feed_begin(fake);
+  ai.begin(&fake, -1, 921600, 2);
+  // ID? reply with no "data" field at all.
+  fake.feedFrame("{\"type\":0,\"name\":\"ID?\",\"code\":0}");
+  char* id = ai.ID(false);           // pre-fix: strcpy(_ID, NULL) -> crash
+  TH_CHECK(id == NULL, "ID() returns NULL when data is absent");
+  TH_REPORT();
+}
+
+// Over-length WIFI/MQTT fields must not overflow their fixed buffers.
+static int case_wifi_mqtt_overflow() {
+  fprintf(stderr, "== bounded WIFI/MQTT copies ==\n");
+  HardwareSerial fake;
+  SSCMA ai;
+  feed_begin(fake);
+  ai.begin(&fake, -1, 921600, 2);
+  std::string big(300, 'x');
+  fake.feedReply(CMD_TYPE_RESPONSE, "WIFI?", 0,
+                 "{\"status\":1,\"config\":{\"security\":0,\"name\":\"" + big +
+                 "\",\"password\":\"" + big + "\"}}");
+  wifi_t w{};
+  int r = ai.WIFI(w);                // pre-fix: strcpy overflows ssid[64]
+  TH_CHECK(r == CMD_OK, "WIFI parsed");
+  TH_CHECK(strlen(w.ssid) < sizeof(w.ssid), "ssid within bounds");
+  TH_CHECK(strlen(w.password) < sizeof(w.password), "password within bounds");
+  TH_REPORT();
+}
+
+// An INVOKE event with no "name" must not crash praser_event()'s strstr.
+static int case_event_noname() {
+  fprintf(stderr, "== event with no name is safe ==\n");
+  HardwareSerial fake;
+  SSCMA ai;
+  feed_begin(fake);
+  ai.begin(&fake, -1, 921600, 2);
+  fake.feedReply(CMD_TYPE_RESPONSE, "INVOKE", 0, "{\"status\":0}");
+  fake.feedFrame("{\"type\":1,\"code\":0,\"data\":{\"boxes\":[[1,2,3,4,5,6]]}}"); // no name
+  int r = ai.invoke(1, false, false);
+  TH_CHECK(r == CMD_ETIMEDOUT || r == CMD_OK, "no crash on nameless event (got %d)", r);
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
@@ -79,6 +144,10 @@ int main(int argc, char** argv) {
   if (which == "happy") return case_happy();
   if (which == "ownership_leak") return case_ownership_leak();
   if (which == "ownership_destruct") return case_ownership_destruct();
+  if (which == "overflow_id") return case_overflow_id();
+  if (which == "nullkey") return case_nullkey();
+  if (which == "wifi_mqtt_overflow") return case_wifi_mqtt_overflow();
+  if (which == "event_noname") return case_event_noname();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;

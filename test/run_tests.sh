@@ -24,6 +24,10 @@ asan_abort() { # <case> <needle>
 # ---- registered by tasks (keep in task order) ----
 pass "$A" happy
 # ASAN_CASES
+pass "$A" overflow_id
+pass "$A" nullkey
+pass "$A" wifi_mqtt_overflow
+pass "$A" event_noname
 pass "$A" ownership_leak
 pass "$A" ownership_destruct
 pass "$F" realloc_fail
