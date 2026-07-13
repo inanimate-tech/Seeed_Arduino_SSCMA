@@ -259,6 +259,8 @@ private:
 public:
     SSCMA();
     ~SSCMA();
+    SSCMA(const SSCMA &) = delete;
+    SSCMA &operator=(const SSCMA &) = delete;
 
     bool begin(TwoWire *wire = &Wire, int32_t rst = -1, uint16_t address = I2C_ADDRESS,
                uint32_t wait_delay = 2, uint32_t clock = SSCMA_IIC_CLOCK);

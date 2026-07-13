@@ -85,9 +85,20 @@ SSCMA::SSCMA()
     _sync = -1;
     tx_len = 0;
     rx_len = 0;
+    rx_buf = NULL;
+    tx_buf = NULL;
+    payload = NULL;
+    _baud = 0;
+    memset(&_perf, 0, sizeof(_perf));
 }
 
-SSCMA::~SSCMA() {}
+SSCMA::~SSCMA()
+{
+    free(rx_buf);
+    free(tx_buf);
+    rx_buf = NULL;
+    tx_buf = NULL;
+}
 
 bool SSCMA::begin(TwoWire *wire, int32_t rst, uint16_t address, uint32_t wait_delay,
                   uint32_t clock)
