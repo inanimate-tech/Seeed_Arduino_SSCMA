@@ -157,6 +157,27 @@ static int case_clamp_tx() {
   TH_REPORT();
 }
 
+// Before any successful fetch, ID(cache=true) must return NULL, not a bogus
+// empty cached string. Pre-fix `if (cache && _ID)` is always true.
+//
+// A transport is attached (as every other case does) but no ID?/NAME? reply
+// is queued, so begin() times out and _ID is never populated -- this keeps
+// the case isolated to the cache-guard bug. A truly transport-less `SSCMA
+// ai;` (no begin() at all) is not usable here: write() has no "no transport
+// configured" branch and falls through to i2c_write(), dereferencing a NULL
+// _wire. That is a pre-existing bug independent of this one (name(), whose
+// guard was already correct, crashes the same way on a never-begun object)
+// and is out of scope for this fix.
+static int case_id_cache() {
+  fprintf(stderr, "== ID() cache guard ==\n");
+  HardwareSerial fake;
+  SSCMA ai;
+  ai.begin(&fake, -1, 921600, 2);   // no reply queued: ID?/NAME? time out, _ID stays ""
+  char* id = ai.ID(true);           // pre-fix: returns _ID (""), not NULL
+  TH_CHECK(id == NULL, "uncached ID() must return NULL, got '%s'", id ? id : "(null)");
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
@@ -169,6 +190,7 @@ int main(int argc, char** argv) {
   if (which == "wifi_mqtt_overflow") return case_wifi_mqtt_overflow();
   if (which == "event_noname") return case_event_noname();
   if (which == "clamp_tx") return case_clamp_tx();
+  if (which == "id_cache") return case_id_cache();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;
