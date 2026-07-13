@@ -124,6 +124,7 @@ bool SSCMA::begin(TwoWire *wire, int32_t rst, uint16_t address, uint32_t wait_de
     _rst = rst;
     _wire = wire;
     _serial = NULL;
+    _spi = NULL;
     _address = address;
     _wire->begin();
 #if defined(ARDUINO_ARCH_ESP32)
@@ -162,6 +163,7 @@ bool SSCMA::begin(HardwareSerial *serial, int32_t rst, uint32_t baud,
 {
     _serial = serial;
     _wire = NULL;
+    _spi = NULL;
     _baud = baud;
     _wait_delay = wait_delay;
     _serial->begin(_baud);
@@ -190,6 +192,8 @@ bool SSCMA::begin(HardwareSerial *serial, int32_t rst, uint32_t baud,
 bool SSCMA::begin(SPIClass *spi, int32_t cs, int32_t sync, int32_t rst, uint32_t baud, uint32_t wait_delay)
 {
     _spi = spi;
+    _wire = NULL;
+    _serial = NULL;
     _cs = cs;
     _rst = rst;
     _sync = sync;
