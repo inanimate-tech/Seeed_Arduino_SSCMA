@@ -106,7 +106,6 @@ SSCMA::SSCMA()
     rx_len = 0;
     rx_buf = NULL;
     tx_buf = NULL;
-    payload = NULL;
     _baud = 0;
     memset(&_perf, 0, sizeof(_perf));
 }
@@ -629,7 +628,7 @@ int SSCMA::wait(int type, const char *cmd, uint32_t timeout)
             {
                 // get json payload
                 len = suffix - prefix + RESPONSE_SUFFIX_LEN;
-                payload = (char *)malloc(len);
+                char *payload = (char *)malloc(len);
 
                 if (!payload)
                 {
@@ -710,7 +709,7 @@ void SSCMA::fetch(ResponseCallback RespCallback)
         {
             // get json payload
             len = suffix - prefix + RESPONSE_SUFFIX_LEN;
-            payload = (char *)malloc(len + 1);
+            char *payload = (char *)malloc(len + 1);
 
             if (!payload)
             {

@@ -254,7 +254,6 @@ private:
     uint32_t tx_len;
     char *rx_buf; // for response
     uint32_t rx_len;
-    char *payload; // for json payload
 
 public:
     SSCMA();
