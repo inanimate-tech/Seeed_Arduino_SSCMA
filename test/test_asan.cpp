@@ -37,11 +37,48 @@ static int case_happy() {
   TH_REPORT();
 }
 
+#if defined(__has_include)
+#  if __has_include(<sanitizer/allocator_interface.h>)
+#    include <sanitizer/allocator_interface.h>
+#    define HAVE_ASAN_ALLOC 1
+#  endif
+#endif
+
+// Leak: construct+destruct must net ~zero heap growth. Pre-fix ~SSCMA() is
+// empty, so rx_buf(4097)+tx_buf(4096)=8193 bytes leak per instance.
+static int case_ownership_leak() {
+  fprintf(stderr, "== ownership: no leak on destruct ==\n");
+#if HAVE_ASAN_ALLOC
+  { HardwareSerial w; feed_begin(w); SSCMA* p = new SSCMA(); p->begin(&w,-1,921600,2); delete p; } // warm up
+  size_t before = __sanitizer_get_current_allocated_bytes();
+  { HardwareSerial f; feed_begin(f); SSCMA* ai = new SSCMA(); ai->begin(&f,-1,921600,2); delete ai; }
+  long long delta = (long long)__sanitizer_get_current_allocated_bytes() - (long long)before;
+  fprintf(stderr, "  delta=%+lld (pre-fix ~= +8193)\n", delta);
+  TH_CHECK(delta < 4096, "construct+destruct must not leak; delta=%+lld", delta);
+#else
+  fprintf(stderr, "  SKIP: no ASan allocator interface\n");
+#endif
+  TH_REPORT();
+}
+
+// Destruct a never-begun object: destructor must free only NULL pointers.
+// Pre-fix the members are uninitialized garbage; a real destructor freeing
+// them would crash, so this guards ctor-init + destructor together.
+static int case_ownership_destruct() {
+  fprintf(stderr, "== ownership: destruct before begin ==\n");
+  SSCMA* ai = new SSCMA();
+  delete ai;  // must not crash / must not free garbage
+  TH_CHECK(true, "destruct before begin is safe");
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
   std::string which = argc > 1 ? argv[1] : "happy";
   if (which == "happy") return case_happy();
+  if (which == "ownership_leak") return case_ownership_leak();
+  if (which == "ownership_destruct") return case_ownership_destruct();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;

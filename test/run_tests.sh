@@ -24,10 +24,20 @@ asan_abort() { # <case> <needle>
 # ---- registered by tasks (keep in task order) ----
 pass "$A" happy
 # ASAN_CASES
+pass "$A" ownership_leak
+pass "$A" ownership_destruct
 # FAULT_CASES
 
 # ---- compile-fail checks (Task 1) ----
 # COMPILE_FAIL_CHECKS
+echo "==== compile_fail/copy_ctor (expect COMPILE ERROR) ===="
+if clang++ -std=c++17 -DARDUINOJSON_ENABLE_ARDUINO_STRING=1 -D__CORRECT_ISO_CPP_STRING_H_PROTO \
+     -Istubs -Ithird_party/ArduinoJson/src -I../src -fsyntax-only compile_fail/copy_ctor.cpp 2>/dev/null; then
+  echo "!! copy_ctor.cpp compiled — SSCMA copy is NOT deleted"; fail=1
+else
+  echo "ok: copying SSCMA is rejected at compile time"
+fi
+echo
 
 if [ $fail -eq 0 ]; then echo "ALL CASES BEHAVED AS EXPECTED"; else echo "FAILURES ABOVE"; fi
 exit $fail
