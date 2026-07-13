@@ -201,6 +201,26 @@ static int case_wait_match() {
   TH_REPORT();
 }
 
+// After begin(SPI) then begin(I2C), write() must target I2C (Wire), not the
+// stale SPI pointer. Dispatch priority is _serial > _spi > _wire, so a stale
+// _spi (left set by the SPI begin) wins over the new _wire unless begin(I2C)
+// clears it. Pre-fix: write() goes to SPI. Post-fix: write() goes to I2C.
+static int case_transport_switch() {
+  fprintf(stderr, "== transport switch clears stale pointers ==\n");
+  SPIClass spi;
+  TwoWire wire;
+  SSCMA ai;
+  ai.begin(&spi, -1, -1, -1, 15000000, 0);   // sets _spi (ID/name time out; fine)
+  ai.begin(&wire, -1, 0x62, 2);              // switch to I2C; must clear _spi
+  size_t spi_before = spi.mosi.size();
+  size_t wire_before = wire.transmissions.size();
+  const char msg[4] = {'a', 'b', 'c', 'd'};
+  ai.write(msg, sizeof(msg));
+  TH_CHECK(wire.transmissions.size() > wire_before, "write() went to I2C (Wire)");
+  TH_CHECK(spi.mosi.size() == spi_before, "write() did NOT touch stale SPI");
+  TH_REPORT();
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 int main(int argc, char** argv) {
@@ -215,6 +235,7 @@ int main(int argc, char** argv) {
   if (which == "clamp_tx") return case_clamp_tx();
   if (which == "id_cache") return case_id_cache();
   if (which == "wait_match") return case_wait_match();
+  if (which == "transport_switch") return case_transport_switch();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;
