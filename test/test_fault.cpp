@@ -20,6 +20,20 @@ static void arm_watchdog(unsigned secs) {
   alarm(secs);
 }
 
+// If buffer allocation fails inside begin(), begin() must return false and not
+// proceed to touch the (NULL) buffers. The SPI path is where this is fatal:
+// begin() issues spi_cmd(RESET) which writes tx_buf[0] with no NULL check.
+static int case_begin_alloc_fail() {
+  fprintf(stderr, "== begin() bails when buffer alloc fails ==\n");
+  SPIClass spi;
+  SSCMA ai;
+  fault::fail_malloc_after(0);   // every malloc in begin() fails
+  bool ok = ai.begin(&spi, -1, -1, -1, 15000000, 0);
+  fault::disarm();
+  TH_CHECK(!ok, "begin() must return false when buffers can't allocate");
+  TH_REPORT();  // reaching here at all = no crash (pre-fix: spi_cmd writes tx_buf[0]=NULL -> SIGSEGV)
+}
+
 // NEW CASES ARE APPENDED HERE BY LATER TASKS.
 
 // A failed re-size (realloc) must leave the object fully usable: the old
@@ -52,6 +66,7 @@ static int case_realloc_fail() {
 int main(int argc, char** argv) {
   std::string which = argc > 1 ? argv[1] : "";
   if (which == "realloc_fail") return case_realloc_fail();
+  if (which == "begin_alloc_fail") return case_begin_alloc_fail();
   // NEW DISPATCH ENTRIES ARE ADDED HERE BY LATER TASKS.
   fprintf(stderr, "unknown case: %s\n", which.c_str());
   return 2;
